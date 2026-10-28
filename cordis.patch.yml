@@ -1,0 +1,17 @@
+# Inserts only this plugin's own row; no shipped DSH component is replaced.
+#
+# The API key is intentionally absent: set the AGNES_API_KEY environment
+# variable for the Harness process, or add `apiKey:` here yourself. Never
+# commit a key to a public repository.
+- insert:
+    - id: agnes-image
+      name: dsh-plugin-agnes-image
+      config:
+        apiKeyEnv: AGNES_API_KEY
+        endpoint: https://apihub.agnes-ai.com/v1/images/generations
+        model: agnes-image-2.5-flash
+        defaultSize: 2K
+        defaultRatio: "1:1"
+        outputDir: agnes-output
+        timeoutMs: 240000
+        downloadTimeoutMs: 120000

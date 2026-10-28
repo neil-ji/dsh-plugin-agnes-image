@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Agnes Image",
+    "description": "Text-to-image and image-to-image generation for the agent, backed by the Agnes Image 2.5 Flash API. Generated PNGs are saved in the session working directory."
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Agnes 生图",
+    "description": "为 Agent 提供基于 Agnes Image 2.5 Flash 的文生图与图生图工具，生成的 PNG 保存在会话工作目录中。"
+  }
+}
