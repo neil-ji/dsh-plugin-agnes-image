@@ -9,6 +9,9 @@ Image generation tools for the DeepSeek Harness (DSH) desktop agent, backed by *
 
 The model receives a path, pixel size, and byte size — never a base64 blob. Call the built-in `read_image` with that path to show it in chat, or `present` to deliver it as a file.
 
+> **Unofficial plugin.** This is a community wrapper around the Agnes image HTTP API and is not affiliated with Agnes.
+> It requires a DSH build that provides the `tools` service and the `read_image` tool (the desktop app does).
+
 > 中文: [README.md](README.md)
 
 ## What it does

@@ -9,6 +9,9 @@
 
 模型拿到的是「文件路径 + 像素尺寸 + 字节数」，想在图里看就用内置 `read_image`，想当交付物就用 `present`——不占额外上下文。
 
+> **非官方插件。** 本项目只是社区对 Agnes 生图 HTTP 接口的封装，与 Agnes 官方无隶属关系。
+> 运行环境需要带 `tools` 服务与 `read_image` 工具的 DSH 桌面端。
+
 > English: [README.en.md](README.en.md)
 
 ## 它做什么
