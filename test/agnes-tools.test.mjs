@@ -70,7 +70,11 @@ after(async () => {
 beforeEach(async () => {
   workspace = await mkdtemp(join(tmpdir(), 'agnes-tools-'));
   workspaces.push(workspace);
-  tools = createToolDefinitions({ config: configFor(), resolveCwd: async () => workspace });
+  tools = createToolDefinitions({
+    config: configFor(),
+    resolveCwd: async () => workspace,
+    resolveApiKey: async () => 'sk-test-key',
+  });
 });
 
 describe('config', () => {
@@ -80,12 +84,14 @@ describe('config', () => {
     assert.equal(config.defaultSize, '2K');
     assert.equal(config.defaultRatio, '1:1');
     assert.equal(config.outputDir, 'agnes-output');
+    assert.equal(config.credentialRef, 'AGNES_API_KEY');
     assert.equal(config.maxReferenceImages, 6);
   });
 
-  test('rejects an unknown size tier and a bad endpoint', () => {
+  test('rejects an unknown size tier, a bad endpoint, and a malformed credential reference', () => {
     assert.throws(() => resolveConfig({ defaultSize: '8K' }), /defaultSize must be one of/);
     assert.throws(() => resolveConfig({ endpoint: 'ftp://example.com' }), /endpoint must be an http\(s\) URL/);
+    assert.throws(() => resolveConfig({ credentialRef: 'not a ref' }), /credentialRef must be a credential reference/);
   });
 });
 
@@ -156,12 +162,15 @@ describe('agnes_text2img', () => {
   });
 
   test('fails clearly without an API key', async () => {
-    const config = resolveConfig({ endpoint: `${server.origin}/v1/images/generations`, apiKeyEnv: 'AGNES_TEST_MISSING_KEY' });
-    const tool = createToolDefinitions({ config, resolveCwd: async () => workspace })
-      .find((definition) => definition.name === 'agnes_text2img');
+    const config = resolveConfig({ endpoint: `${server.origin}/v1/images/generations` });
+    const tool = createToolDefinitions({
+      config,
+      resolveCwd: async () => workspace,
+      resolveApiKey: async () => '',
+    }).find((definition) => definition.name === 'agnes_text2img');
 
     const callsBefore = server.requests.length;
-    await assert.rejects(tool.execute({ prompt: 'x' }, exec), /No Agnes API key is configured/);
+    await assert.rejects(tool.execute({ prompt: 'x' }, exec), /No Agnes API key is configured.*Settings → Agnes 生图/s);
     assert.equal(server.requests.length, callsBefore, 'no request is sent without a key');
   });
 

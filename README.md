@@ -7,10 +7,12 @@
 | `agnes_text2img` | 文生图：一句提示词出一张 PNG，落到工作目录 |
 | `agnes_img2img` | 图生图 / 多参考图合成：1–6 张参考图（本地路径、公共 HTTPS URL、`data:` URI 都行） |
 
+API Key 不再依赖环境变量：在 **设置 → Agnes 生图** 里粘贴即可，走 DSH 内置凭据库（和内置模型 Provider 的 Key 同一套机制），只写不回显，保存后下一次生图立刻生效。
+
 模型拿到的是「文件路径 + 像素尺寸 + 字节数」，想在图里看就用内置 `read_image`，想当交付物就用 `present`——不占额外上下文。
 
 > **非官方插件。** 本项目只是社区对 Agnes 生图 HTTP 接口的封装，与 Agnes 官方无隶属关系。
-> 运行环境需要带 `tools` 服务与 `read_image` 工具的 DSH 桌面端。
+> 运行环境需要带 `tools` 服务、`read_image` 工具和凭据服务的 DSH 桌面端。
 
 > English: [README.en.md](README.en.md)
 
@@ -20,8 +22,9 @@
 - 自动读 PNG/JPEG/WebP 头拿真实宽高，不靠猜。
 - 同名文件不覆盖：`art.png` 已存在就写 `art-2.png`。
 - 尺寸档位 `1K/2K/3K/4K` × 比例 `1:1 / 3:4 / 4:3 / 16:9 / 9:16 / 2:3 / 3:2 / 21:9`，与官方实测尺寸一致（16:9 的 2K 是 2624×1472，不是 1920×1080）。
-- 失败信息直接给可执行的下一步：401 提示去配 `AGNES_API_KEY`，429 提示降并发，400 提示别传 seed / negative_prompt / n>1，超时提示降档位。
+- 失败信息直接给可执行的下一步：401 提示去设置页检查 Key，429 提示降并发，400 提示别传 seed / negative_prompt / n>1，超时提示降档位。
 - 引擎不支持的参数**根本不出现在工具 schema 里**，避免模型白试一轮。
+- 设置页提供 Key 的状态（已配置 / 未配置 / 来源）、保存、显示切换与两步确认移除。
 
 ## 安装
 
@@ -42,14 +45,20 @@ plugin_manager install_bundle "F:\path\to\dsh-plugin-agnes-image"
 
 装完是 profile 级插件，对所有会话生效；新增工具在下一轮对话即可见。
 
-## 配置 API Key
+## 配置 API Key：设置 → Agnes 生图
 
-插件本身**不含任何密钥**。二选一：
+1. 打开 **设置 → Agnes 生图**。
+2. 粘贴 API Key，点**保存**（输入框是密码态，可临时点「显示」核对）。
+3. 状态点变绿、显示「已配置」，**下一次生图立即生效，无需重启**。
 
-1. 环境变量（推荐）：给 Harness 进程设置 `AGNES_API_KEY`，重启 Harness。
-2. 插件配置：在 profile 的 `cordis.patch.yml` 里给 `agnes-image` 行加 `apiKey: sk-...`；**不要提交到公开仓库**。
+安全与存储：
 
-没配 key 时工具不会发请求，而是返回一条明确的报错：`No Agnes API key is configured.`
+- Key 写入 **本机 DSH 凭据库**（`~/.dsh/.credentials.yaml` 的 `AGNES_API_KEY` 引用），与内置模型 Provider 的 Key 同一套机制。
+- 界面**只写不读**：凭据服务只回传「是否配置 / 来源 / 是否可写」这些脱敏事实，已存的 Key 不会被读回浏览器，输入框永远从空开始。
+- 不会出现在：插件配置、`cordis.patch.yml`、仓库、会话记录、工具结果。
+- 解析优先级：插件行里的 `apiKey`（仅给无人值守部署用）→ 凭据库 → 同名环境变量。
+  **环境变量仍然可用**，只是不再是唯一入口。
+- 移除：点「移除」后再点「确认移除」，5 秒内不确认会自动取消。
 
 ## 配置项
 
@@ -57,8 +66,8 @@ plugin_manager install_bundle "F:\path\to\dsh-plugin-agnes-image"
 
 | 字段 | 默认值 | 说明 |
 |---|---|---|
-| `apiKey` | `""` | 显式密钥，优先级最高；不要提交 |
-| `apiKeyEnv` | `AGNES_API_KEY` | 读哪个环境变量 |
+| `credentialRef` | `AGNES_API_KEY` | 凭据引用名：设置页写它，工具每次调用读它 |
+| `apiKey` | `""` | 显式密钥，优先级最高；只给 CI / 无人值守用，**不要提交** |
 | `endpoint` | `https://apihub.agnes-ai.com/v1/images/generations` | 生成端点 |
 | `model` | `agnes-image-2.5-flash` | 模型名 |
 | `defaultSize` | `2K` | 未传 `size` 时的档位 |
@@ -117,10 +126,10 @@ Agent 内部就是调用：
 
 ## 开发
 
-无构建步骤，纯 ESM + Node 内置能力（`fetch`、`node:fs/promises`）。
+无构建步骤，纯 ESM + Node 内置能力（`fetch`、`node:fs/promises`）；浏览器半边是一个 loader 包装的片段，只 `require('react')`。
 
 ```bash
-npm test     # 28 个用例：请求体形状、错误映射、超时/取消、编码、落盘、路径
+npm test     # 39 个用例：请求体形状、错误映射、超时/取消、编码、落盘、路径、密钥解析优先级、设置页
 ```
 
 测试用本地 mock HTTP 服务模拟 Agnes 端点与图片下载，不需要 key、不联网。
@@ -128,9 +137,11 @@ npm test     # 28 个用例：请求体形状、错误映射、超时/取消、�
 目录：
 
 ```
-index.js              插件入口：校验配置、注册工具
+index.js              插件入口：校验配置、注册工具、绑定凭据解析
+client.js             设置页（settings.section）：Key 的保存 / 移除 / 状态
 lib/agnes-api.js      请求构造、HTTP、错误映射、下载
 lib/agnes-files.js    格式识别、宽高解析、路径与文件写入
+lib/agnes-key.js      凭据解析（配置 → 凭据库 → 环境变量）
 lib/agnes-tools.js    两个工具的定义与共享执行器
 lib/config.js         配置规范化
 locale/{en,zh}.json   插件页显示名与描述
@@ -138,8 +149,9 @@ locale/{en,zh}.json   插件页显示名与描述
 
 ## 隐私与安全
 
-- 代码里没有任何密钥；文档和示例也不含密钥。
-- 密钥只从配置/环境变量读取，不进日志、不进错误信息（`Bearer ...` 会打码）。
+- 代码、文档、示例里没有任何密钥；设置页只把 Key 写进本机凭据库。
+- 已存的 Key 不回显、不进日志、不进错误信息（`Bearer ...` 会打码）。
+- 工具每次调用都重新解析凭据，因此轮换 Key 不需要重启，也不会用到旧值。
 - 只在用户调用工具时联网：一次生成请求 + 一次成图下载。
 - 生成文件写到会话工作目录（默认 `agnes-output/`），不碰系统目录。
 
@@ -147,4 +159,4 @@ locale/{en,zh}.json   插件页显示名与描述
 
 MIT © 2026 Neil Ji
 
-Agnes 的生图能力与接口归 Agnes 官方所有；本项目只是调用封装，未包含其代码或模型。
+Agnes 的生图能力与接口归 Agnes 官方所有，本项目只是调用封装，未包含其代码或模型。

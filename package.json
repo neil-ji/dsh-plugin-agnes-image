@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-agnes-image",
-  "version": "0.1.0",
-  "description": "DSH desktop plugin: text-to-image and image-to-image tools for the agent, backed by the Agnes Image 2.5 Flash API.",
+  "version": "0.2.0",
+  "description": "DSH desktop plugin: text-to-image and image-to-image tools for the agent, backed by the Agnes Image 2.5 Flash API, with a Settings page that stores the key in the DSH credential store.",
   "type": "module",
   "license": "MIT",
   "author": "Neil Ji",
@@ -24,12 +24,14 @@
   },
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
     "index.js",
+    "client.js",
     "lib",
     "cordis.patch.yml",
     "locale/*.json",
@@ -39,7 +41,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/agnes-api.test.mjs test/agnes-tools.test.mjs"
+    "test": "node --test test/agnes-api.test.mjs test/agnes-key.test.mjs test/agnes-tools.test.mjs test/client.test.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -47,6 +49,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-general"
+      ]
     }
   }
 }

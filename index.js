@@ -1,15 +1,17 @@
 /**
  * dsh-plugin-agnes-image — image generation tools for the DSH agent.
  *
- * The plugin is deliberately tiny on the Host side: it validates its row's
- * config once, registers two global tools, and lets the tools service own
- * visibility, argument validation, timeouts, and result materialization.
+ * Host half: validate the plugin row once, register two global tools, and give
+ * the tools a key resolver bound to the DSH credential seam. The credential is
+ * re-read per call (`ctx.credentials.resolve`), matching how the built-in LLM
+ * providers resolve their API keys, so a key saved in Settings → Agnes 生图 is
+ * live on the next tool call without a restart.
  *
- * Why plain JavaScript without a build step: the whole surface is Node's
- * `fetch`, `node:fs/promises`, and raw JSON-Schema tool definitions, so a
- * linked checkout runs exactly the files that are published.
+ * Browser half: `client.js` contributes the Settings section that writes that
+ * credential; it never reads a stored value back.
  */
 
+import { resolveAgnesKey } from './lib/agnes-key.js';
 import { createToolDefinitions } from './lib/agnes-tools.js';
 import { resolveConfig } from './lib/config.js';
 
@@ -29,13 +31,21 @@ export function apply(ctx, config) {
   const definitions = createToolDefinitions({
     config: resolved,
     resolveCwd: (exec) => resolveCwd(ctx, exec),
+    resolveApiKey: async () => {
+      const credentials = ctx.get('credentials');
+      const lookup = await resolveAgnesKey({
+        config: resolved,
+        ...(credentials === undefined ? {} : { credentials }),
+      });
+      return lookup.key;
+    },
   });
 
   for (const definition of definitions) ctx.tools.register(definition);
 
   ctx.logger?.debug?.(
     `agnes-image: registered ${definitions.map((definition) => definition.name).join(', ')} `
-    + `(model ${resolved.model}, output ${resolved.outputDir})`,
+    + `(model ${resolved.model}, output ${resolved.outputDir}, credential ${resolved.credentialRef})`,
   );
 }
 
