@@ -154,7 +154,9 @@ describe('client settings section', () => {
 
     const markup = JSON.stringify(tree);
     assert.equal(/sk-[A-Za-z0-9]{8,}/.test(markup), false, 'no key-like string is rendered');
-    assert.match(markup, /本机 DSH 凭据库/);
+    assert.equal(markup.includes('使用方式'), false, 'the page keeps only the form, no explanatory card');
+    assert.equal(markup.includes('存放位置'), false, 'no storage explainer line');
+    assert.equal(markup.includes('输入框留空'), false, 'no hint paragraph under the field');
   });
 
   test('writes, reads, and clears through the credential seam', async () => {
