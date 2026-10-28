@@ -39,6 +39,8 @@ window.__ModuleLoader__.load({
       missing: '未配置',
       checking: '读取中…',
       source: '来源：',
+      sourceStore: '本机凭据库',
+      sourceEnv: '环境变量',
       keyLabel: 'Agnes API Key',
       placeholder: '粘贴 API Key（只写不回显）',
       show: '显示',
@@ -75,6 +77,8 @@ window.__ModuleLoader__.load({
       missing: 'Not configured',
       checking: 'Reading…',
       source: 'Source: ',
+      sourceStore: 'credential store',
+      sourceEnv: 'environment',
       keyLabel: 'Agnes API Key',
       placeholder: 'Paste the API key (write-only)',
       show: 'Show',
@@ -158,6 +162,19 @@ window.__ModuleLoader__.load({
       if (/^[A-Za-z_][A-Za-z0-9_]*\s*=/.test(value)) return t('errEnv');
       if (/^["']|["']$/.test(value)) return t('errQuote');
       return undefined;
+    }
+
+    /**
+     * Name the layer that currently supplies the key, without exposing it.
+     * @param {string} source - `CredentialInfo.source` from the Host.
+     * @param {(key: string) => string} t - page translator.
+     * @returns {string} localized source label, or the raw source when unknown.
+     */
+    function sourceLabel(source, t) {
+      const value = source.toLowerCase();
+      if (value.includes('store')) return t('sourceStore');
+      if (value.includes('env')) return t('sourceEnv');
+      return source;
     }
 
     /**
@@ -270,7 +287,7 @@ window.__ModuleLoader__.load({
         h('span', { className: `agnes-dot agnes-dot-${statusTone}`, 'aria-hidden': true }),
         h('span', null, statusText),
         info !== undefined && typeof info.source === 'string' && info.source !== ''
-          ? h('span', null, t('source') + info.source)
+          ? h('span', null, t('source') + sourceLabel(info.source, t))
           : null);
 
       const credentialCard = h('section', { className: 'agnes-card' },
