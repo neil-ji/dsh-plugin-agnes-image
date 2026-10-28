@@ -16,3 +16,9 @@
         outputDir: agnes-output
         timeoutMs: 240000
         downloadTimeoutMs: 120000
+        videoEndpoint: https://apihub.agnes-ai.com/v1/videos
+        videoQueryEndpoint: https://apihub.agnes-ai.com/agnesapi
+        videoModel: agnes-video-2.5-flash
+        videoDefaultSeconds: "5"
+        videoDefaultAspectRatio: "16:9"
+        videoWaitMs: 180000

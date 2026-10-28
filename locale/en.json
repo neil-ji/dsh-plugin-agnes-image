@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Agnes Image",
-    "description": "Text-to-image and image-to-image tools for the agent, backed by the Agnes Image 2.5 Flash API. The API key is saved in the DSH credential store from Settings → Agnes Image; generated PNGs land in the session working directory."
+    "description": "Text-to-image, image-to-image, and text-to-video tools for the agent, backed by Agnes Image and Video 2.5 Flash. The API key is saved in the DSH credential store from Settings → Agnes Image; generated files land in the session working directory."
   }
 }

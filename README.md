@@ -1,30 +1,56 @@
 # dsh-plugin-agnes-image
 
-给 DeepSeek Harness（DSH）桌面端的 Agent 加两个生图工具，后端是 **Agnes Image 2.5 Flash**：
+给 DeepSeek Harness（DSH）桌面端的 Agent 加一组 Agnes 生成工具：**文生图、图生图、文生视频**，后端是 **Agnes Image / Video 2.5 Flash**。
 
 | 工具 | 用途 |
 |---|---|
 | `agnes_text2img` | 文生图：一句提示词出一张 PNG，落到工作目录 |
 | `agnes_img2img` | 图生图 / 多参考图合成：1–6 张参考图（本地路径、公共 HTTPS URL、`data:` URI 都行） |
+| `agnes_video` | 文生视频 / 首尾帧 / 参考素材：4–12 秒、720P，自动轮询并下载 MP4 |
+| `agnes_video_status` | 继续等待或查询视频任务，完成后下载 MP4 |
 
-API Key 不再依赖环境变量：在 **设置 → Agnes 生图** 里粘贴即可，走 DSH 内置凭据库（和内置模型 Provider 的 Key 同一套机制），只写不回显，保存后下一次生图立刻生效。
+API Key 在 **设置 → Agnes 生图** 里粘贴，走 DSH 内置凭据库（和内置模型 Provider 的 Key 同一套机制），只写不回显；图片与视频共用同一个 Key。
 
-模型拿到的是「文件路径 + 像素尺寸 + 字节数」，想在图里看就用内置 `read_image`，想当交付物就用 `present`——不占额外上下文。
+模型拿到的是「文件路径 + 尺寸/时长 + 字节数」，看图用内置 `read_image`，交付用 `present`——不占额外上下文。
 
-> **非官方插件。** 本项目只是社区对 Agnes 生图 HTTP 接口的封装，与 Agnes 官方无隶属关系。
+> **非官方插件。** 本项目只是社区对 Agnes 生成接口的封装，与 Agnes 官方无隶属关系。
 > 运行环境需要带 `tools` 服务、`read_image` 工具和凭据服务的 DSH 桌面端。
 
 > English: [README.en.md](README.en.md)
 
-## 它做什么
+## 图片能力
 
-- 调 `POST https://apihub.agnes-ai.com/v1/images/generations`，把结果**下载并保存**成 PNG（URL 是临时直链，不落盘会过期）。
+- 调 `POST /v1/images/generations`，把结果**下载并保存**成 PNG（URL 是临时直链，不落盘会过期）。
 - 自动读 PNG/JPEG/WebP 头拿真实宽高，不靠猜。
 - 同名文件不覆盖：`art.png` 已存在就写 `art-2.png`。
-- 尺寸档位 `1K/2K/3K/4K` × 比例 `1:1 / 3:4 / 4:3 / 16:9 / 9:16 / 2:3 / 3:2 / 21:9`，与官方实测尺寸一致（16:9 的 2K 是 2624×1472，不是 1920×1080）。
-- 失败信息直接给可执行的下一步：401 提示去设置页检查 Key，429 提示降并发，400 提示别传 seed / negative_prompt / n>1，超时提示降档位。
-- 引擎不支持的参数**根本不出现在工具 schema 里**，避免模型白试一轮。
-- 设置页提供 Key 的状态（已配置 / 未配置 / 来源）、保存、显示切换与两步确认移除。
+- 尺寸档位 `1K/2K/3K/4K` × 比例 `1:1 / 3:4 / 4:3 / 16:9 / 9:16 / 2:3 / 3:2 / 21:9`（16:9 的 2K 是 2624×1472，不是 1920×1080）。
+- 引擎不支持的参数（seed / negative_prompt / steps / n>1）**根本不出现在工具 schema 里**。
+
+## 视频能力
+
+Agnes 视频是**异步任务**：先创建，再按 `video_id` 轮询，完成后从 `url` 下载。
+
+- 模型 `agnes-video-2.5-flash`，分辨率固定 **720P**，时长 `"4"`–`"12"` 秒，`n` 固定 1。
+- 三种模式：
+  - `text`：只给提示词；
+  - `keyframe`：`first_frame` / `last_frame`（至少一个）控制首尾构图；
+  - `reference`：最多 5 张参考图 + 3 段参考音频，提示词里用 `<Picture 1>`、`<Audio 1>` 指代。
+- **参考素材必须是公共 HTTPS URL**：Agnes 自己去抓，所以本地文件、`data:` URI 都用不了；Flash 也**不支持参考视频**。
+- 工具默认等最多 3 分钟；没跑完就返回 `pending` + `videoId`，再调 `agnes_video_status` 继续等或下载。也可以 `wait: false` 立即拿 `videoId`。
+- 完成后下载 MP4 并在文件头校验（`ftyp`），不是视频就不落盘；同名不覆盖。
+
+画幅（720P）：
+
+| ratio | 像素 |
+|---|---|
+| 21:9 | 1680×720 |
+| 16:9 | 1280×704 |
+| 4:3 | 960×720 |
+| 1:1 | 720×720 |
+| 3:4 | 720×960 |
+| 9:16 | 720×1280 |
+
+计费：官方当前限时 **$0/秒**（720P），价格随时可能变。
 
 ## 安装
 
@@ -39,124 +65,112 @@ https://github.com/neil-ji/dsh-plugin-agnes-image
 ### 本地目录（开发时）
 
 ```bash
-# 在 DSH 里让 Agent 执行，或直接用 plugin_manager
 plugin_manager install_bundle "F:\path\to\dsh-plugin-agnes-image"
 ```
-
-装完是 profile 级插件，对所有会话生效；新增工具在下一轮对话即可见。
 
 ## 配置 API Key：设置 → Agnes 生图
 
 1. 打开 **设置 → Agnes 生图**。
-2. 粘贴 API Key，点**保存**（输入框是密码态，可临时点「显示」核对）。
-3. 状态点变绿、显示「已配置」，**下一次生图立即生效，无需重启**。
+2. 粘贴 API Key，点**保存**（密码框，可临时点「显示」核对）。
+3. 状态点变绿；下一次生图/生视频立即生效，无需重启。
 
 安全与存储：
 
-- Key 写入 **本机 DSH 凭据库**（`~/.dsh/.credentials.yaml` 的 `AGNES_API_KEY` 引用），与内置模型 Provider 的 Key 同一套机制。
-- 界面**只写不读**：凭据服务只回传「是否配置 / 来源 / 是否可写」这些脱敏事实，已存的 Key 不会被读回浏览器，输入框永远从空开始。
-- 不会出现在：插件配置、`cordis.patch.yml`、仓库、会话记录、工具结果。
-- 解析优先级：插件行里的 `apiKey`（仅给无人值守部署用）→ 凭据库 → 同名环境变量。
-  **环境变量仍然可用**，只是不再是唯一入口。
-- 移除：点「移除」后再点「确认移除」，5 秒内不确认会自动取消。
+- Key 写入 **本机 DSH 凭据库**（`~/.dsh/.credentials.yaml` 的 `AGNES_API_KEY` 引用）。
+- 界面**只写不读**：只回传「是否配置 / 是否可写」等脱敏事实，已存的 Key 不会读回浏览器。
+- 不会出现在插件配置、`cordis.patch.yml`、仓库、会话记录或工具结果里。
+- 解析优先级：`apiKey` 配置（仅 CI）→ 凭据库 → 同名环境变量。
 
 ## 配置项
 
-配置写在 bundle 的 `cordis.patch.yml`（安装后可用 profile patch 覆盖）：
-
 | 字段 | 默认值 | 说明 |
 |---|---|---|
-| `credentialRef` | `AGNES_API_KEY` | 凭据引用名：设置页写它，工具每次调用读它 |
-| `apiKey` | `""` | 显式密钥，优先级最高；只给 CI / 无人值守用，**不要提交** |
-| `endpoint` | `https://apihub.agnes-ai.com/v1/images/generations` | 生成端点 |
-| `model` | `agnes-image-2.5-flash` | 模型名 |
-| `defaultSize` | `2K` | 未传 `size` 时的档位 |
-| `defaultRatio` | `1:1` | 未传 `ratio` 时的比例 |
-| `outputDir` | `agnes-output` | 默认输出目录，相对会话工作目录 |
-| `maxReferenceImages` | `6` | 参考图上限 |
-| `timeoutMs` | `240000` | 生成请求超时 |
-| `downloadTimeoutMs` | `120000` | 下载成图超时 |
-| `maxInputBytes` | `16 MiB` | 单张参考图上限 |
-| `maxOutputBytes` | `64 MiB` | 单张成图上限 |
-
-## 工具参数
-
-两个工具共享：`prompt`（必填）、`size`、`ratio`、`path`（可选输出路径；相对路径按会话工作目录解析，以 `/` 结尾表示「放进这个目录、用默认文件名」）。
-
-`agnes_img2img` 额外要求 `images`：字符串数组，每项可以是
-
-- 本地图片路径（PNG / JPEG / GIF / WebP，自动转 `data:` URI）；
-- 公共 HTTPS URL（原样交给 Agnes 抓取）；
-- `data:image/png;base64,...`。
-
-参考图 1 对结果影响最大；多图适合「角色 + 产品」，不适合当姿势控制——姿势请写进提示词。
+| `credentialRef` | `AGNES_API_KEY` | 凭据引用名 |
+| `apiKey` | `""` | 显式密钥，优先级最高；不要提交 |
+| `endpoint` | `.../v1/images/generations` | 图片端点 |
+| `model` | `agnes-image-2.5-flash` | 图片模型 |
+| `defaultSize` / `defaultRatio` | `2K` / `1:1` | 图片默认档位与比例 |
+| `outputDir` | `agnes-output` | 输出目录（相对会话工作目录） |
+| `maxReferenceImages` | `6` | 图生图参考图上限 |
+| `timeoutMs` / `downloadTimeoutMs` | `240000` / `120000` | 单次 HTTP 超时 |
+| `maxInputBytes` / `maxOutputBytes` | `16 MiB` / `64 MiB` | 输入 / 输出图片上限 |
+| `videoEndpoint` | `.../v1/videos` | 视频创建端点 |
+| `videoQueryEndpoint` | `.../agnesapi` | 视频查询端点 |
+| `videoModel` | `agnes-video-2.5-flash` | 视频模型 |
+| `videoDefaultSeconds` | `"5"` | 默认时长 |
+| `videoDefaultAspectRatio` | `16:9` | 默认画幅 |
+| `videoPollIntervalMs` | `2000` | 轮询间隔 |
+| `videoWaitMs` | `180000` | 单次工具调用最多等待 |
+| `videoDownloadTimeoutMs` | `120000` | 视频下载超时 |
+| `maxVideoBytes` | `256 MiB` | 单个视频上限 |
 
 ## 典型用法
 
 ```text
 # 文生图
-帮我生成一张 2K、16:9 的赛博朋克街景，霓虹灯、雨后反光
+生成一张 2K、16:9 的赛博朋克街景，霓虹灯、雨后反光
 
 # 图生图
 把 C:\work\hero.png 里的角色改成挥剑动作，保持角色和构图，2K 16:9
 
-# 多图合成
-把角色图和产品图合成一张电商海报，背景浅灰
+# 文生视频
+生成 6 秒、16:9 的视频：雨后的未来城市街道，霓虹倒映，银色跑车缓慢驶过，低机位跟拍，自然环境声
+
+# 首尾帧视频（图片需公共 URL）
+用这两张图做首尾帧，5 秒、16:9，人物自然转身走向窗边
 ```
 
-Agent 内部就是调用：
+## 引擎限制
 
-```json
-{
-  "prompt": "seamless stone floor texture, top-down, even light",
-  "size": "2K",
-  "ratio": "1:1"
-}
-```
+**图片**
 
-## 引擎限制（照抄实测文档，别让模型白试）
+- 没有 seed：同提示词每次都不同，不可复现。
+- 一次一张；没有 negative prompt / steps / guidance_scale；输出无 alpha。
+- `response_format` 必须放 `extra_body`，参考图必须放 `extra_body.image`（插件已处理）。
 
-- **没有 seed**：同提示词每次都不同，不可复现。
-- **一次一张**：`n` 只能是 1，批量请多次调用（3 并发实测没问题）。
-- **没有 negative prompt / steps / guidance_scale**：传了会 400。
-- **没有透明通道**：输出 PNG 是 RGB，背景是模型画出来的近白，要透明得后期抠图。
-- **`response_format` 必须放 `extra_body`**，参考图必须放 `extra_body.image` 且是数组——插件已经处理，手写脚本时要注意。
-- 输出 URL 是临时直链，插件拿到即下载。
-- 4K 与部分比例组合官方未实测；失败时降档位重试。
+**视频**
+
+- Flash 只有 720P；`size` 传别的值直接 400。
+- 时长 4–12 秒；`n` 只能 1；参考视频不支持（400 `videos is not supported`）。
+- 参考图 ≤5、参考音频 ≤3；素材必须是公共可访问 URL。
+- 任务状态以 `status` 与 `url` 为准，`internal_status` 不可用于判断完成。
+- 超过 `videoWaitMs` 会返回 pending，不影响任务继续跑；`videoId` 可用于后续查询。
 
 ## 开发
 
-无构建步骤，纯 ESM + Node 内置能力（`fetch`、`node:fs/promises`）；浏览器半边是一个 loader 包装的片段，只 `require('react')`。
+无构建步骤，纯 ESM + Node 内置能力；浏览器半边是 loader 包装的片段，只 `require('react')`。
 
 ```bash
-npm test     # 41 个用例：请求体形状、错误映射、超时/取消、编码、落盘、路径（含 Windows 盘符）、密钥解析优先级、设置页
+npm test   # 59 个用例：图片请求/错误/落盘、密钥优先级、设置页、视频任务/轮询/下载/校验
 ```
 
-测试用本地 mock HTTP 服务模拟 Agnes 端点与图片下载，不需要 key、不联网。
+测试用本地 mock HTTP 服务模拟两端点与文件下载，不需要 key、不联网。
 
 目录：
 
 ```
-index.js              插件入口：校验配置、注册工具、绑定凭据解析
-client.js             设置页（settings.section）：Key 的保存 / 移除 / 状态
-lib/agnes-api.js      请求构造、HTTP、错误映射、下载
-lib/agnes-files.js    格式识别、宽高解析、路径与文件写入
-lib/agnes-key.js      凭据解析（配置 → 凭据库 → 环境变量）
-lib/agnes-tools.js    两个工具的定义与共享执行器
-lib/config.js         配置规范化
-locale/{en,zh}.json   插件页显示名与描述
+index.js               插件入口：配置、注册图片与视频工具、绑定凭据解析
+client.js              设置页（settings.section）：Key 的保存 / 移除 / 状态
+lib/agnes-api.js       图片请求构造、HTTP、错误映射、下载
+lib/agnes-video-api.js 视频创建、查询、下载与错误映射
+lib/agnes-files.js     图片/视频识别、宽高、路径与安全写入
+lib/agnes-key.js       凭据解析（配置 → 凭据库 → 环境变量）
+lib/agnes-tools.js     图片工具定义与执行器
+lib/video-tools.js     视频工具定义、轮询与下载
+lib/config.js          配置规范化
+locale/{en,zh}.json    插件页显示名与描述
 ```
 
 ## 隐私与安全
 
 - 代码、文档、示例里没有任何密钥；设置页只把 Key 写进本机凭据库。
 - 已存的 Key 不回显、不进日志、不进错误信息（`Bearer ...` 会打码）。
-- 工具每次调用都重新解析凭据，因此轮换 Key 不需要重启，也不会用到旧值。
-- 只在用户调用工具时联网：一次生成请求 + 一次成图下载。
-- 生成文件写到会话工作目录（默认 `agnes-output/`），不碰系统目录。
+- 每次调用重新解析凭据，轮换 Key 不需要重启。
+- 联网只发生在工具调用时：一次请求（图片）或创建 + 轮询 + 下载（视频）。
+- 生成文件写到会话工作目录（默认 `agnes-output/`）。
 
 ## License
 
 MIT © 2026 Neil Ji
 
-Agnes 的生图能力与接口归 Agnes 官方所有，本项目只是调用封装，未包含其代码或模型。
+Agnes 的生成能力与接口归 Agnes 官方所有，本项目只是调用封装，未包含其代码或模型。

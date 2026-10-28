@@ -1,8 +1,8 @@
 /**
- * dsh-plugin-agnes-image — image generation tools for the DSH agent.
+ * dsh-plugin-agnes-image — image and video generation tools for the DSH agent.
  *
- * Host half: validate the plugin row once, register two global tools, and give
- * the tools a key resolver bound to the DSH credential seam. The credential is
+ * Host half: validate the plugin row once, register the global tools, and give
+ * them a key resolver bound to the DSH credential seam. The credential is
  * re-read per call (`ctx.credentials.resolve`), matching how the built-in LLM
  * providers resolve their API keys, so a key saved in Settings → Agnes 生图 is
  * live on the next tool call without a restart.
@@ -14,6 +14,7 @@
 import { resolveAgnesKey } from './lib/agnes-key.js';
 import { createToolDefinitions } from './lib/agnes-tools.js';
 import { resolveConfig } from './lib/config.js';
+import { createVideoToolDefinitions } from './lib/video-tools.js';
 
 /** Stable Loader identity used by cordis.patch.yml. */
 export const name = 'agnes-image';
@@ -28,24 +29,30 @@ export const inject = ['tools'];
  */
 export function apply(ctx, config) {
   const resolved = resolveConfig(config);
-  const definitions = createToolDefinitions({
+  const resolveApiKey = async () => {
+    const credentials = ctx.get('credentials');
+    const lookup = await resolveAgnesKey({
+      config: resolved,
+      ...(credentials === undefined ? {} : { credentials }),
+    });
+    return lookup.key;
+  };
+  const wiring = {
     config: resolved,
     resolveCwd: (exec) => resolveCwd(ctx, exec),
-    resolveApiKey: async () => {
-      const credentials = ctx.get('credentials');
-      const lookup = await resolveAgnesKey({
-        config: resolved,
-        ...(credentials === undefined ? {} : { credentials }),
-      });
-      return lookup.key;
-    },
-  });
+    resolveApiKey,
+  };
+
+  const definitions = [
+    ...createToolDefinitions(wiring),
+    ...createVideoToolDefinitions(wiring),
+  ];
 
   for (const definition of definitions) ctx.tools.register(definition);
 
   ctx.logger?.debug?.(
     `agnes-image: registered ${definitions.map((definition) => definition.name).join(', ')} `
-    + `(model ${resolved.model}, output ${resolved.outputDir}, credential ${resolved.credentialRef})`,
+    + `(image ${resolved.model}, video ${resolved.videoModel}, output ${resolved.outputDir}, credential ${resolved.credentialRef})`,
   );
 }
 
