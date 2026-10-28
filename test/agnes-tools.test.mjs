@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, beforeEach, describe, test } from 'node:test';
 
-import { createToolDefinitions } from '../lib/agnes-tools.js';
+import { createToolDefinitions, unsupportedScheme } from '../lib/agnes-tools.js';
 import { imageDimensions, sniffMediaType } from '../lib/agnes-files.js';
 import { resolveConfig } from '../lib/config.js';
 import { makePng, startMockServer } from './helpers.mjs';
@@ -247,10 +247,33 @@ describe('agnes_img2img', () => {
   test('rejects missing files, unsupported schemes, and too many references', async () => {
     const tool = tools.find((entry) => entry.name === 'agnes_img2img');
     await assert.rejects(tool.execute({ prompt: 'x', images: ['missing.png'] }, exec), /Reference image not found/);
-    await assert.rejects(tool.execute({ prompt: 'x', images: ['file:///secret.png'] }, exec), /unsupported scheme/);
+    await assert.rejects(tool.execute({ prompt: 'x', images: ['file:///secret.png'] }, exec), /unsupported "file:" scheme/);
     await assert.rejects(
       tool.execute({ prompt: 'x', images: Array.from({ length: 7 }, () => 'https://example.com/a.png') }, exec),
       /at most 6 reference images/,
     );
+  });
+
+  test('treats Windows drive letters as local paths, not URI schemes', () => {
+    assert.equal(unsupportedScheme('F:\\art\\cat.png'), undefined);
+    assert.equal(unsupportedScheme('C:/art/cat.png'), undefined);
+    assert.equal(unsupportedScheme('\\\\server\\share\\cat.png'), undefined);
+    assert.equal(unsupportedScheme('art/cat.png'), undefined);
+    assert.equal(unsupportedScheme('file:///C:/art/cat.png'), 'file');
+    assert.equal(unsupportedScheme('ftp://host/cat.png'), 'ftp');
+    assert.equal(unsupportedScheme('blob:https://example.com/x'), 'blob');
+    assert.equal(unsupportedScheme('S3:bucket/key'), 's3');
+  });
+
+  test('sends an absolute local reference path as a data URI', async () => {
+    const referencePath = join(workspace, 'absolute.png');
+    await writeFile(referencePath, PNG);
+
+    const tool = tools.find((entry) => entry.name === 'agnes_img2img');
+    const value = await tool.execute({ prompt: 'absolute path', images: [referencePath] }, exec);
+
+    assert.deepEqual(value.sourceImages, [referencePath]);
+    const body = JSON.parse(lastApiRequest().body);
+    assert.deepEqual(body.extra_body.image, [`data:image/png;base64,${PNG.toString('base64')}`]);
   });
 });
