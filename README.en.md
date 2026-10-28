@@ -111,13 +111,14 @@ Security:
 - At most 5 reference images and 3 reference audios, all publicly reachable URLs.
 - Judge completion by `status` and `url`; `internal_status` is not authoritative.
 - Exceeding `videoWaitMs` returns `pending` without cancelling the task; poll with `agnes_video_status`.
+- A create call answering `503 video queue is full` means Agnes capacity is saturated (not a bad request); retry after a minute.
 
 ## Development
 
 No build step; plain ESM on Node built-ins. The browser half is a loader fragment that only requires `react`.
 
 ```bash
-npm test   # 59 cases: image request shape/errors/saving, key resolution, settings page, video task/poll/download/validation
+npm test   # 60 cases: image request shape/errors/saving, key resolution, settings page, video task/poll/download/validation
 ```
 
 The Host tests run against local mock endpoints; the client test evaluates the real fragment with a stub React and a fake credential seam. No network or key required.

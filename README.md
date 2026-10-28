@@ -135,13 +135,14 @@ plugin_manager install_bundle "F:\path\to\dsh-plugin-agnes-image"
 - 参考图 ≤5、参考音频 ≤3；素材必须是公共可访问 URL。
 - 任务状态以 `status` 与 `url` 为准，`internal_status` 不可用于判断完成。
 - 超过 `videoWaitMs` 会返回 pending，不影响任务继续跑；`videoId` 可用于后续查询。
+- 创建任务返回 `503 video queue is full` 表示 Agnes 视频队列已满（不是参数错误），等一分钟重试即可。
 
 ## 开发
 
 无构建步骤，纯 ESM + Node 内置能力；浏览器半边是 loader 包装的片段，只 `require('react')`。
 
 ```bash
-npm test   # 59 个用例：图片请求/错误/落盘、密钥优先级、设置页、视频任务/轮询/下载/校验
+npm test   # 60 个用例：图片请求/错误/落盘、密钥优先级、设置页、视频任务/轮询/下载/校验
 ```
 
 测试用本地 mock HTTP 服务模拟两端点与文件下载，不需要 key、不联网。
