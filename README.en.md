@@ -88,7 +88,7 @@ Shared: `prompt` (required), `size`, `ratio`, `path` (optional output path, reso
 No build step; plain ESM on Node built-ins. The browser half is a loader fragment that only requires `react`.
 
 ```bash
-npm test   # 39 cases: request shape, key resolution, error mapping, deadlines, saving, paths, settings page
+npm test   # 41 cases: request shape, key resolution, error mapping, deadlines, saving, paths (Windows drive letters included), settings page
 ```
 
 The Host tests run against a local mock endpoint; the client test evaluates the real fragment with a stub React and a fake credential seam. Neither needs network access or a key.

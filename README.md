@@ -129,7 +129,7 @@ Agent 内部就是调用：
 无构建步骤，纯 ESM + Node 内置能力（`fetch`、`node:fs/promises`）；浏览器半边是一个 loader 包装的片段，只 `require('react')`。
 
 ```bash
-npm test     # 39 个用例：请求体形状、错误映射、超时/取消、编码、落盘、路径、密钥解析优先级、设置页
+npm test     # 41 个用例：请求体形状、错误映射、超时/取消、编码、落盘、路径（含 Windows 盘符）、密钥解析优先级、设置页
 ```
 
 测试用本地 mock HTTP 服务模拟 Agnes 端点与图片下载，不需要 key、不联网。
