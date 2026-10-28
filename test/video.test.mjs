@@ -209,6 +209,12 @@ describe('video config and errors', () => {
     assert.match(failure.message, /images length must not exceed 5/);
     assert.equal(failure.retryable, false);
   });
+
+  test('surfaces a top-level 503 queue message', () => {
+    const failure = describeVideoFailure(503, { code: 'video_queue_full', message: 'video queue is full, please retry later' });
+    assert.match(failure.message, /video queue is full/);
+    assert.equal(failure.retryable, true);
+  });
 });
 
 describe('agnes_video', () => {

@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-agnes-image",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "DSH desktop plugin: text-to-image, image-to-image, and text-to-video tools for the agent, backed by Agnes Image and Video 2.5 Flash, with a Settings page that stores the key in the DSH credential store.",
   "type": "module",
   "license": "MIT",
