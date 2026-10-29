@@ -105,7 +105,7 @@ window.__ModuleLoader__.load({
       '.agnes-input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}',
       '.agnes-btn{height:32px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-size:13px;line-height:30px;cursor:pointer;white-space:nowrap}',
       '.agnes-btn:disabled{opacity:.55;cursor:default}',
-      '.agnes-btn-primary{background:var(--dsw-alias-brand-primary);color:#fff}',
+      '.agnes-btn-primary{background:var(--dsw-alias-button-primary-fill,var(--dsw-alias-brand-primary));color:var(--dsw-alias-label-primary-foreground,#fff)}',
       '.agnes-btn-secondary{background:transparent;border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary)}',
       '.agnes-btn-ghost{background:transparent;color:var(--dsw-alias-label-secondary);padding:0 8px}',
       '.agnes-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
